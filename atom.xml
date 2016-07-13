@@ -1,0 +1,490 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>弦外之影</title>
+  <subtitle>学而不思则罔，思而不学则殆！</subtitle>
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="https://babysource.github.io/"/>
+  <updated>2016-07-12T10:00:00.000Z</updated>
+  <id>https://babysource.github.io/</id>
+  
+  <author>
+    <name>Wythe</name>
+    <email>wythe@189.cn</email>
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Ganglia部署实战</title>
+    <link href="https://babysource.github.io/articles/2016/ops/07/12/ganglia_deploy/"/>
+    <id>https://babysource.github.io/articles/2016/ops/07/12/ganglia_deploy/</id>
+    <published>2016-07-12T10:00:00.000Z</published>
+    <updated>2016-07-12T10:00:00.000Z</updated>
+    
+    <content type="html">&lt;p&gt;Ganglia是UC Berkeley发起的一个开源集群监视项目，设计用于测量数以千计的节点。Ganglia的核心包含gmond、gmetad以及一个Web前端。主要是用来监控系统性能，如：cpu、mem、硬盘利用率、I/O负载、网络流量情况等，通过曲线很容易见到每个节点的工作状态，对合理调整、分配系统资源，提高系统整体性能起到重要作用。&lt;/p&gt;
+&lt;h1 id=&quot;工作原理&quot;&gt;&lt;a href=&quot;#工作原理&quot; class=&quot;headerlink&quot; title=&quot;工作原理&quot;&gt;&lt;/a&gt;工作原理&lt;/h1&gt;&lt;p&gt;Ganglia主要有两个角色：gmond（ganglia monitor daemons）和gmetad（ganglia metadata daemons）。&lt;/p&gt;
+&lt;p&gt;gmond：需要在被监控的每台机器上部署，负责采集所在机器的系统状态，信息都是存储在内存里面的。&lt;/p&gt;
+&lt;p&gt;gmetad：负责收集gmond监控信息写入rrdtool环形数据库，然后ganglia-web读取rrdtool并且绘图呈现给用户。&lt;/p&gt;
+&lt;h1 id=&quot;部署环境&quot;&gt;&lt;a href=&quot;#部署环境&quot; class=&quot;headerlink&quot; title=&quot;部署环境&quot;&gt;&lt;/a&gt;部署环境&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;ganglia v3.7.2&lt;/p&gt;
+&lt;p&gt;CentOS release 6.3 (Final)&lt;/p&gt;
+&lt;p&gt;Linux version 2.6.32-279.el6.x86_64&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id=&quot;1-安装Ganglia&quot;&gt;&lt;a href=&quot;#1-安装Ganglia&quot; class=&quot;headerlink&quot; title=&quot;1.安装Ganglia&quot;&gt;&lt;/a&gt;1.安装Ganglia&lt;/h1&gt;&lt;h2 id=&quot;1-1-安装Ganglia服务端&quot;&gt;&lt;a href=&quot;#1-1-安装Ganglia服务端&quot; class=&quot;headerlink&quot; title=&quot;1.1 安装Ganglia服务端&quot;&gt;&lt;/a&gt;1.1 安装Ganglia服务端&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;yum install ganglia ganglia-devel ganglia-gmetad ganglia-gmond ganglia-gmond-python ganglia-web
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;1-2-安装Ganglia客户端&quot;&gt;&lt;a href=&quot;#1-2-安装Ganglia客户端&quot; class=&quot;headerlink&quot; title=&quot;1.2 安装Ganglia客户端&quot;&gt;&lt;/a&gt;1.2 安装Ganglia客户端&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;yum install ganglia ganglia-gmond
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;2-配置Ganglia&quot;&gt;&lt;a href=&quot;#2-配置Ganglia&quot; class=&quot;headerlink&quot; title=&quot;2.配置Ganglia&quot;&gt;&lt;/a&gt;2.配置Ganglia&lt;/h1&gt;&lt;h2 id=&quot;2-1-服务端配置gmetad-etc-ganglia-gmetad-conf&quot;&gt;&lt;a href=&quot;#2-1-服务端配置gmetad-etc-ganglia-gmetad-conf&quot; class=&quot;headerlink&quot; title=&quot;2.1 服务端配置gmetad ( /etc/ganglia/gmetad.conf )&quot;&gt;&lt;/a&gt;2.1 服务端配置gmetad ( /etc/ganglia/gmetad.conf )&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;gridname &amp;quot;网格名称&amp;quot;
+
+data_source &amp;quot;集群名称&amp;quot; IP1：PORT1 IP2：PORT2
+
+# 可选配置
+# The port gmetad will answer requests for XML.
+xml_port 8651
+# 可选配置
+# The port gmetad will answer queries for XML.
+interactive_port 8652
+# 可选配置（响应请求线程）
+server_threads 4
+# 可选配置（数据保存路径）
+rrd_rootdir &amp;quot;/var/lib/ganglia/rrds&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;注：PORT默认端口8649&lt;/p&gt;
+&lt;h2 id=&quot;2-2-客户端配置gmond-etc-ganglia-gmond-conf&quot;&gt;&lt;a href=&quot;#2-2-客户端配置gmond-etc-ganglia-gmond-conf&quot; class=&quot;headerlink&quot; title=&quot;2.2 客户端配置gmond ( /etc/ganglia/gmond.conf )&quot;&gt;&lt;/a&gt;2.2 客户端配置gmond ( /etc/ganglia/gmond.conf )&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;globals {
+  # 是否后台方式运行
+  # When yes, gmond will daemonize. 
+  # When no, gmond will run in the foreground.
+  daemonize = yes
+  # 是否指定UID
+  # When yes, gmond will set its effective UID to the uid of the user specified by the user attribute. 
+  # When no, gmond will not change its effective user.
+  setuid = yes
+  # 运行gmond用户
+  user = ganglia
+  # 调试级别
+  # When set to zero (0), gmond will run normally.
+  # The higher the debug_level the more verbose the output.
+  # A debug_level greater than zero will result in gmond running in the foreground and outputting debugging information. 
+  debug_level = 0
+  # 发送包最大长度
+  max_udp_msg_len = 1472
+  # 是否广播采集数据
+  mute = no
+  # 是否接收广播数据
+  deaf = no
+  # 是否发送EXTRA_ELEMENT和EXTRA_DATA部分
+  allow_extra_data = yes
+  # （秒）
+  host_dmax = 86400
+  # （秒）
+  host_tmax = 20
+  # 清除过期数据最小时间间隔（秒）
+  cleanup_threshold = 300
+  # 是否启用gexec任务
+  # http://www.theether.org/gexec/
+  gexec = no
+  # 可选配置（重写主机名称）
+  # override_hostname = &amp;quot;主机名称&amp;quot;
+  # 发送采集数据最小时间间隔（秒）
+  # If you are not using multicast this value should be set to something other than 0.
+  send_metadata_interval = 0
+}
+
+cluster {
+  # 同data_source集群名称配置
+  name = &amp;quot;集群名称&amp;quot;
+  # 示例：Wythe 或 unspecified
+  owner = &amp;quot;节点所有者&amp;quot;
+  # 示例：N37.37 W122.23 或 unspecified
+  latlong = &amp;quot;经纬度坐标&amp;quot;
+  # 示例：https://babysource.github.io/ 或 unspecified
+  url = &amp;quot;集群信息网址&amp;quot;
+}
+
+udp_send_channel {
+  # 可选配置（是否绑定主机名称）
+  # bind_hostname = yes
+
+  # 多播地址（多播时配置，多播与单播模式互斥，仅限选一种模式）
+  mcast_join = 239.2.11.71
+  # 可选配置（多播时配置，绑定网络设备）
+  # mcast_if = eth0
+
+  # 单播地址（单播时配置，单播与多播模式互斥，仅限选一种模式）
+  # 单播模式下可配置多个udp_send_channel
+  # host = 127.0.0.1
+
+  # 监听端口
+  port = 8649
+  # Time to Live
+  ttl = 1
+}
+
+udp_recv_channel {
+  # 多播地址（多播时配置，多播与单播模式互斥，仅限选一种模式）
+  mcast_join = 239.2.11.71
+  # 可选配置（多播时配置，绑定网络设备）
+  # mcast_if = eth0
+
+  # 绑定地址
+  bind = 239.2.11.71
+  # 监听端口
+  port = 8649
+  # 网络协议（IPV4: inet4; IPV6: inet6;）
+  # family = inet4
+  # 是否重试绑定
+  retry_bind = true
+  # Size of the UDP buffer.
+  # buffer = 10485760
+}
+
+tcp_accept_channel {
+  # 网络协议（IPV4: inet4; IPV6: inet6;）
+  # family = inet4
+  # 绑定地址
+  # bind = 239.2.11.71
+  # 监听端口
+  port = 8649
+  # 绑定网络设备
+  # interface = eth0
+  # 是否启用gzip传输XML
+  gzip_output = no
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;2-3-WEB站点配置-etc-httpd-conf-d-ganglia-conf&quot;&gt;&lt;a href=&quot;#2-3-WEB站点配置-etc-httpd-conf-d-ganglia-conf&quot; class=&quot;headerlink&quot; title=&quot;2.3 WEB站点配置 ( /etc/httpd/conf.d/ganglia.conf )&quot;&gt;&lt;/a&gt;2.3 WEB站点配置 ( /etc/httpd/conf.d/ganglia.conf )&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;Alias /ganglia /usr/share/ganglia
+&amp;lt;Location /ganglia&amp;gt;
+  Order Deny,Allow
+  Deny from all
+  Allow from all
+&amp;lt;/Location&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;2-4-关闭SELINUX-etc-selinux-config&quot;&gt;&lt;a href=&quot;#2-4-关闭SELINUX-etc-selinux-config&quot; class=&quot;headerlink&quot; title=&quot;2.4 关闭SELINUX ( /etc/selinux/config )&quot;&gt;&lt;/a&gt;2.4 关闭SELINUX ( /etc/selinux/config )&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;SELINUX=disable
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;注： 需重启机器。（还可执行指令”setenforce 0”临时关闭SELINUX）&lt;/p&gt;
+&lt;h1 id=&quot;3-启动服务&quot;&gt;&lt;a href=&quot;#3-启动服务&quot; class=&quot;headerlink&quot; title=&quot;3.启动服务&quot;&gt;&lt;/a&gt;3.启动服务&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;service httpd start
+service gmond start
+service gmetad start
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;4-访问站点&quot;&gt;&lt;a href=&quot;#4-访问站点&quot; class=&quot;headerlink&quot; title=&quot;4.访问站点&quot;&gt;&lt;/a&gt;4.访问站点&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;http://HOST:PORT/ganglia
+&lt;/code&gt;&lt;/pre&gt;</content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;Ganglia是UC Berkeley发起的一个开源集群监视项目，设计用于测量数以千计的节点。Ganglia的核心包含gmond、gmetad以及一个Web前端。主要是用来监控系统性能，如：cpu、mem、硬盘利用率、I/O负载、网络流量情况等，通过曲线很容易见到每个节点的
+    
+    </summary>
+    
+      <category term="运维测试" scheme="https://babysource.github.io/categories/ops/"/>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>ELK部署实战</title>
+    <link href="https://babysource.github.io/articles/2016/ops/07/12/elk_deploy/"/>
+    <id>https://babysource.github.io/articles/2016/ops/07/12/elk_deploy/</id>
+    <published>2016-07-12T10:00:00.000Z</published>
+    <updated>2016-07-12T10:00:00.000Z</updated>
+    
+    <content type="html">&lt;p&gt;ELK是ElasticSearch、Logstash、Kibana三个开源软件的缩写。在实时数据检索和分析场合，通常是三者组合使用，故有此简称。&lt;/p&gt;
+&lt;p&gt;ElasticSearch简称ES，是个开源分布式搜索引擎，主要用来存储和检索数据。&lt;/p&gt;
+&lt;p&gt;Logstash主要用来往ES中写入数据，它可以对日志进行收集、分析，并将其存储供以后使用。&lt;/p&gt;
+&lt;p&gt;Kibana主要用来展示数据，提供日志分析友好的WEB界面，可以帮助汇总、分析和搜索重要数据日志。&lt;/p&gt;
+&lt;h1 id=&quot;部署环境&quot;&gt;&lt;a href=&quot;#部署环境&quot; class=&quot;headerlink&quot; title=&quot;部署环境&quot;&gt;&lt;/a&gt;部署环境&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;Topbeat 1.2.3&lt;/p&gt;
+&lt;p&gt;Filebeat 1.2.3&lt;/p&gt;
+&lt;p&gt;Kibana 4.5.1&lt;/p&gt;
+&lt;p&gt;Logstash 2.3.3&lt;/p&gt;
+&lt;p&gt;Elasticsearch 2.3.3&lt;/p&gt;
+&lt;p&gt;beats-dashboards-1.2.3&lt;/p&gt;
+&lt;p&gt;OpenJDK version “1.8.0_91”&lt;/p&gt;
+&lt;p&gt;CentOS Linux release 7.2.1511 (Core)&lt;/p&gt;
+&lt;p&gt;Linux version 3.10.0-123.el7.x86_64&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id=&quot;1-安装ELK&quot;&gt;&lt;a href=&quot;#1-安装ELK&quot; class=&quot;headerlink&quot; title=&quot;1.安装ELK&quot;&gt;&lt;/a&gt;1.安装ELK&lt;/h1&gt;&lt;h2 id=&quot;1-1-下载ELK&quot;&gt;&lt;a href=&quot;#1-1-下载ELK&quot; class=&quot;headerlink&quot; title=&quot;1.1 下载ELK&quot;&gt;&lt;/a&gt;1.1 下载ELK&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;wget https://download.elastic.co/kibana/kibana/kibana-4.5.1-1.x86_64.rpm
+
+wget https://download.elastic.co/logstash/logstash/packages/centos/logstash-2.3.3-1.noarch.rpm
+
+wget https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/rpm/elasticsearch/2.3.3/elasticsearch-2.3.3.rpm
+
+wget https://download.elastic.co/beats/topbeat/topbeat-1.2.3-x86_64.rpm
+
+wget https://download.elastic.co/beats/filebeat/filebeat-1.2.3-x86_64.rpm
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;1-2-服务端安装ELK&quot;&gt;&lt;a href=&quot;#1-2-服务端安装ELK&quot; class=&quot;headerlink&quot; title=&quot;1.2 服务端安装ELK&quot;&gt;&lt;/a&gt;1.2 服务端安装ELK&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;yum -y localinstall elasticsearch-2.3.3.rpm
+
+yum -y localinstall kibana-4.5.1-1.x86_64.rpm
+
+yum -y localinstall logstash-2.3.3-1.noarch.rpm
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;1-3-客户端安装Beat&quot;&gt;&lt;a href=&quot;#1-3-客户端安装Beat&quot; class=&quot;headerlink&quot; title=&quot;1.3 客户端安装Beat&quot;&gt;&lt;/a&gt;1.3 客户端安装Beat&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;yum -y localinstall topbeat-1.2.3-x86_64.rpm
+
+yum -y localinstall filebeat-1.2.3-x86_64.rpm
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;2-配置ELK&quot;&gt;&lt;a href=&quot;#2-配置ELK&quot; class=&quot;headerlink&quot; title=&quot;2.配置ELK&quot;&gt;&lt;/a&gt;2.配置ELK&lt;/h1&gt;&lt;p&gt;注： 未使用SSL的配置方案；&lt;/p&gt;
+&lt;h2 id=&quot;2-1-配置Kibana-（-opt-kibana-config-kibana-yml-）&quot;&gt;&lt;a href=&quot;#2-1-配置Kibana-（-opt-kibana-config-kibana-yml-）&quot; class=&quot;headerlink&quot; title=&quot;2.1 配置Kibana （ /opt/kibana/config/kibana.yml ）&quot;&gt;&lt;/a&gt;2.1 配置Kibana （ /opt/kibana/config/kibana.yml ）&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;# 服务端口（默认：5601）
+server.port
+# 绑定主机
+server.host
+
+# 索引名称
+kibana.index
+# 默认应用
+kibana.defaultAppId
+
+# Elasticsearch 网站地址
+elasticsearch.url
+# Elasticsearch 登录用户
+elasticsearch.username
+# Elasticsearch 登录密码
+elasticsearch.password
+# Elasticsearch 主机保护
+elasticsearch.preserveHost
+
+......
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;2-2-配置Logstash&quot;&gt;&lt;a href=&quot;#2-2-配置Logstash&quot; class=&quot;headerlink&quot; title=&quot;2.2 配置Logstash&quot;&gt;&lt;/a&gt;2.2 配置Logstash&lt;/h2&gt;&lt;h3 id=&quot;2-2-1-创建配置文件-etc-logstash-conf-d-logstash-initial-conf&quot;&gt;&lt;a href=&quot;#2-2-1-创建配置文件-etc-logstash-conf-d-logstash-initial-conf&quot; class=&quot;headerlink&quot; title=&quot;2.2.1 创建配置文件 ( /etc/logstash/conf.d/logstash-initial.conf )&quot;&gt;&lt;/a&gt;2.2.1 创建配置文件 ( /etc/logstash/conf.d/logstash-initial.conf )&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;touch /etc/logstash/conf.d/logstash-initial.conf
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&quot;2-2-2-配置日志方案&quot;&gt;&lt;a href=&quot;#2-2-2-配置日志方案&quot; class=&quot;headerlink&quot; title=&quot;2.2.2 配置日志方案&quot;&gt;&lt;/a&gt;2.2.2 配置日志方案&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;# 输入配置
+input {
+  beats {
+    port =&amp;gt; 5000
+    type =&amp;gt; &amp;quot;logs&amp;quot;
+  }
+}
+
+# 过滤规则
+filter {
+  if [type] == &amp;quot;syslog&amp;quot; {
+    grok {
+      match =&amp;gt; { &amp;quot;message&amp;quot; =&amp;gt; &amp;quot;%{SYSLOGTIMESTAMP:syslog_timestamp} %{SYSLOGHOST:syslog_hostname} %{DATA:syslog_program}(?:\[%{POSINT:syslog_pid}\])?: %{GREEDYDATA:syslog_message}&amp;quot; }
+      add_field =&amp;gt; [ &amp;quot;received_at&amp;quot;, &amp;quot;%{@timestamp}&amp;quot; ]
+      add_field =&amp;gt; [ &amp;quot;received_from&amp;quot;, &amp;quot;%{host}&amp;quot; ]
+    }
+    geoip {
+      source =&amp;gt; &amp;quot;clientip&amp;quot;
+    }
+    syslog_pri {}
+    date {
+      match =&amp;gt; [ &amp;quot;syslog_timestamp&amp;quot;, &amp;quot;MMM d HH:mm:ss&amp;quot;, &amp;quot;MMM dd HH:mm:ss&amp;quot; ]
+    }
+  }
+}
+
+# 输出配置
+output {
+  elasticsearch {
+      hosts =&amp;gt; [&amp;quot;localhost:9200&amp;quot;]
+      index =&amp;gt; &amp;quot;%{[@metadata][beat]}-%{+YYYY.MM.dd}&amp;quot;
+  }
+  stdout { codec =&amp;gt; rubydebug }
+}
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;2-3-配置Elasticsearch-etc-elasticsearch-elasticsearch-yml&quot;&gt;&lt;a href=&quot;#2-3-配置Elasticsearch-etc-elasticsearch-elasticsearch-yml&quot; class=&quot;headerlink&quot; title=&quot;2.3 配置Elasticsearch ( /etc/elasticsearch/elasticsearch.yml )&quot;&gt;&lt;/a&gt;2.3 配置Elasticsearch ( /etc/elasticsearch/elasticsearch.yml )&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;# 服务端口（默认：9200）
+http.port
+
+# 数据目录
+path.data
+# 日志目录
+path.logs
+
+# 节点名称
+node.name
+# 集群名称
+cluster.name
+# 绑定主机
+network.host
+
+......
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;2-4-配置Beats&quot;&gt;&lt;a href=&quot;#2-4-配置Beats&quot; class=&quot;headerlink&quot; title=&quot;2.4 配置Beats&quot;&gt;&lt;/a&gt;2.4 配置Beats&lt;/h2&gt;&lt;h3 id=&quot;2-4-1-配置FileBeat&quot;&gt;&lt;a href=&quot;#2-4-1-配置FileBeat&quot; class=&quot;headerlink&quot; title=&quot;2.4.1 配置FileBeat&quot;&gt;&lt;/a&gt;2.4.1 配置FileBeat&lt;/h3&gt;&lt;h4 id=&quot;2-4-1-1-基础配置-etc-filebeat-filebeat-yml&quot;&gt;&lt;a href=&quot;#2-4-1-1-基础配置-etc-filebeat-filebeat-yml&quot; class=&quot;headerlink&quot; title=&quot;2.4.1.1 基础配置 ( /etc/filebeat/filebeat.yml )&quot;&gt;&lt;/a&gt;2.4.1.1 基础配置 ( /etc/filebeat/filebeat.yml )&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;# 采集方案
+filebeat:
+    # 最大发送数量
+    spool_size: 1024
+    # 空闲发送时长
+    idle_timeout: 5s
+    # 配置拆分目录
+    config_dir: /etc/filebeat/conf.d
+    # 记录文件目录
+    registry_file: /var/lib/filebeat/registry
+
+# 采集报送
+output:
+    logstash:
+        # 主机地址
+        hosts: [&amp;quot;localhost:5000&amp;quot;]
+
+......
+&lt;/code&gt;&lt;/pre&gt;&lt;h4 id=&quot;2-4-1-2-采集配置-etc-filebeat-conf-d-yml&quot;&gt;&lt;a href=&quot;#2-4-1-2-采集配置-etc-filebeat-conf-d-yml&quot; class=&quot;headerlink&quot; title=&quot;2.4.1.2 采集配置 ( /etc/filebeat/conf.d/*.yml )&quot;&gt;&lt;/a&gt;2.4.1.2 采集配置 ( /etc/filebeat/conf.d/*.yml )&lt;/h4&gt;&lt;pre&gt;&lt;code&gt;filebeat:
+    prospectors:
+        # 采集文件目录（支持通配符）
+        - paths:
+              - /var/log/messages
+          # 可选附加字段
+          fields:
+              system: centos7
+          # 采集文件编码
+          encoding: plain
+          # 是否末尾读取
+          tail_files: false
+          # 采集输入类型
+          input_type: log
+          # 采集数据类型
+          document_type: syslog
+          # 采集排除文件
+          exclude_files: [&amp;quot;.gz$&amp;quot;]
+        # 采集排除内容
+          exclude_lines: [&amp;quot;^DBG&amp;quot;]
+        # 采集包含内容
+          include_lines: [&amp;quot;^ERR&amp;quot;, &amp;quot;^WARN&amp;quot;]
+          # 文件更新检测时长
+          backoff: 1s
+          # 忽略监听过期时长
+          ignore_older: 0
+          # 目录扫描间隔时长
+          scan_frequency: 10s
+          # 文件读取缓冲大小
+          harvester_buffer_size: 16384
+          # 多行数据合并配置
+          multiline:
+              # 多行匹配规则
+              pattern: ^\[
+              # 多行匹配超时
+              timeout: 5s
+              # 多行合并模式
+              match: after
+              # 是否转置规则
+              negate: false
+              # 匹配最大行数
+              max_lines: 500
+......
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&quot;2-4-2-配置TopBeat-etc-topbeat-topbeat-yml&quot;&gt;&lt;a href=&quot;#2-4-2-配置TopBeat-etc-topbeat-topbeat-yml&quot; class=&quot;headerlink&quot; title=&quot;2.4.2 配置TopBeat ( /etc/topbeat/topbeat.yml )&quot;&gt;&lt;/a&gt;2.4.2 配置TopBeat ( /etc/topbeat/topbeat.yml )&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;# 采集方案
+input:
+    # 采集间隔频率
+    period: 10
+    # 采集进程规则
+    procs: [&amp;quot;.*&amp;quot;]
+    stats:
+        # 是否采集系统信息
+        system: true
+        # 是否采集进程信息
+        process: true
+        # 是否采集磁盘信息
+        filesystem: true
+        # 是否采集多核信息
+        cpu_per_core: true
+
+# 采集报送
+output:
+    logstash:
+        # 主机地址
+        hosts: [&amp;quot;localhost:5000&amp;quot;]
+        # 索引名称
+        index: topbeat
+
+......
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;2-5-配置防火墙-（-etc-sysconfig-iptables-）&quot;&gt;&lt;a href=&quot;#2-5-配置防火墙-（-etc-sysconfig-iptables-）&quot; class=&quot;headerlink&quot; title=&quot;2.5 配置防火墙 （ /etc/sysconfig/iptables ）&quot;&gt;&lt;/a&gt;2.5 配置防火墙 （ /etc/sysconfig/iptables ）&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;-A INPUT -m state --state NEW -m tcp -p tcp --dport 5000 -j ACCEPT
+
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 9200 -j ACCEPT
+
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 9300 -j ACCEPT
+
+-A INPUT -m state --state NEW -m tcp -p tcp --dport 5601 -j ACCEPT
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;3-启动相关服务&quot;&gt;&lt;a href=&quot;#3-启动相关服务&quot; class=&quot;headerlink&quot; title=&quot;3.启动相关服务&quot;&gt;&lt;/a&gt;3.启动相关服务&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;service kibana start
+service logstash start
+service elasticsearch start
+cd 
+service topbeat start
+service filebeat start
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;4-访问Kibana&quot;&gt;&lt;a href=&quot;#4-访问Kibana&quot; class=&quot;headerlink&quot; title=&quot;4.访问Kibana&quot;&gt;&lt;/a&gt;4.访问Kibana&lt;/h1&gt;&lt;pre&gt;&lt;code&gt;http://HOST:5601/
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;5-安装Dashboards&quot;&gt;&lt;a href=&quot;#5-安装Dashboards&quot; class=&quot;headerlink&quot; title=&quot;5.安装Dashboards&quot;&gt;&lt;/a&gt;5.安装Dashboards&lt;/h1&gt;&lt;h2 id=&quot;5-1-下载Beats-Dashboards&quot;&gt;&lt;a href=&quot;#5-1-下载Beats-Dashboards&quot; class=&quot;headerlink&quot; title=&quot;5.1 下载Beats-Dashboards&quot;&gt;&lt;/a&gt;5.1 下载Beats-Dashboards&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;https://download.elastic.co/beats/dashboards/beats-dashboards-1.2.3.zip
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;5-2-安装Beats-Dashboards&quot;&gt;&lt;a href=&quot;#5-2-安装Beats-Dashboards&quot; class=&quot;headerlink&quot; title=&quot;5.2 安装Beats-Dashboards&quot;&gt;&lt;/a&gt;5.2 安装Beats-Dashboards&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;./load.sh -url &amp;quot;http://localhost:9200&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;&lt;h1 id=&quot;6-安装ElastAlert&quot;&gt;&lt;a href=&quot;#6-安装ElastAlert&quot; class=&quot;headerlink&quot; title=&quot;6.安装ElastAlert&quot;&gt;&lt;/a&gt;6.安装ElastAlert&lt;/h1&gt;&lt;h2 id=&quot;6-1-下载ElastAlert&quot;&gt;&lt;a href=&quot;#6-1-下载ElastAlert&quot; class=&quot;headerlink&quot; title=&quot;6.1 下载ElastAlert&quot;&gt;&lt;/a&gt;6.1 下载ElastAlert&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;git clone https://github.com/Yelp/elastalert.git
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-2-安装依赖&quot;&gt;&lt;a href=&quot;#6-2-安装依赖&quot; class=&quot;headerlink&quot; title=&quot;6.2 安装依赖&quot;&gt;&lt;/a&gt;6.2 安装依赖&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;yum -y install libyaml
+yum -y install libyaml-devel 
+
+yum -y install python-devel
+yum -y install python-setuptools
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-3-执行安装&quot;&gt;&lt;a href=&quot;#6-3-执行安装&quot; class=&quot;headerlink&quot; title=&quot;6.3 执行安装&quot;&gt;&lt;/a&gt;6.3 执行安装&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;python setup.py install
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-4-创建索引&quot;&gt;&lt;a href=&quot;#6-4-创建索引&quot; class=&quot;headerlink&quot; title=&quot;6.4 创建索引&quot;&gt;&lt;/a&gt;6.4 创建索引&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;$ elastalert-create-index
+# 输入索引名
+New index name (Default elastalert_status)
+Name of existing index to copy (Default None)
+New index elastalert_status created
+Done!
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-5-创建配置&quot;&gt;&lt;a href=&quot;#6-5-创建配置&quot; class=&quot;headerlink&quot; title=&quot;6.5 创建配置&quot;&gt;&lt;/a&gt;6.5 创建配置&lt;/h2&gt;&lt;h3 id=&quot;6-5-1-拷贝配置&quot;&gt;&lt;a href=&quot;#6-5-1-拷贝配置&quot; class=&quot;headerlink&quot; title=&quot;6.5.1 拷贝配置&quot;&gt;&lt;/a&gt;6.5.1 拷贝配置&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;cp config.yaml.example config.yaml
+&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&quot;6-5-2-配置选项&quot;&gt;&lt;a href=&quot;#6-5-2-配置选项&quot; class=&quot;headerlink&quot; title=&quot;6.5.2 配置选项&quot;&gt;&lt;/a&gt;6.5.2 配置选项&lt;/h3&gt;&lt;pre&gt;&lt;code&gt;# 告警规则目录
+rules_folder: rules
+# 告警轮询时长
+run_every:
+  minutes: 5
+# 缓存时间范围
+buffer_time:
+  minutes: 45
+# 时间范围字段
+timestamp_field: 
+# Elasticsearch 主机地址
+es_host: localhost
+# Elasticsearch 主机端口
+es_port: 9200
+# Elasticsearch 登录用户
+es_username:
+# Elasticsearch 登录密码
+es_password:
+# Elasticsearch 索引名称
+writeback_index: elastalert_status
+# 重试有效时长
+alert_time_limit:
+  days: 1
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-6-设定规则&quot;&gt;&lt;a href=&quot;#6-6-设定规则&quot; class=&quot;headerlink&quot; title=&quot;6.6 设定规则&quot;&gt;&lt;/a&gt;6.6 设定规则&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;# Elasticsearch 主机地址
+es_host: localhost
+# Elasticsearch 主机端口
+es_port: 9200
+# 规则名称（唯一）
+name: 
+# 规则类型
+type: 
+# 依赖索引
+index: 
+# 累积触发报警时长（小时）
+timeframe:
+      hours: 1
+  # 过滤条件
+  filter:
+  # 告警方式
+  alert:
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;6-7-启动服务&quot;&gt;&lt;a href=&quot;#6-7-启动服务&quot; class=&quot;headerlink&quot; title=&quot;6.7 启动服务&quot;&gt;&lt;/a&gt;6.7 启动服务&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;python -m elastalert.elastalert --config ./config.yaml
+&lt;/code&gt;&lt;/pre&gt;&lt;p&gt;注：使用 &lt;code&gt;--verbose&lt;/code&gt; 参数跟踪告警信息&lt;/p&gt;
+&lt;h1 id=&quot;7-相关指令与工具&quot;&gt;&lt;a href=&quot;#7-相关指令与工具&quot; class=&quot;headerlink&quot; title=&quot;7.相关指令与工具&quot;&gt;&lt;/a&gt;7.相关指令与工具&lt;/h1&gt;&lt;h2 id=&quot;7-1-ElastAlert规则测试&quot;&gt;&lt;a href=&quot;#7-1-ElastAlert规则测试&quot; class=&quot;headerlink&quot; title=&quot;7.1 ElastAlert规则测试&quot;&gt;&lt;/a&gt;7.1 ElastAlert规则测试&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;elastalert-test-rule rule.yaml
+&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;7-2-Elasticsearch索引状态查询&quot;&gt;&lt;a href=&quot;#7-2-Elasticsearch索引状态查询&quot; class=&quot;headerlink&quot; title=&quot;7.2 Elasticsearch索引状态查询&quot;&gt;&lt;/a&gt;7.2 Elasticsearch索引状态查询&lt;/h2&gt;&lt;pre&gt;&lt;code&gt;curl http://localhost:9200/_stats/indexes?pretty=1
+&lt;/code&gt;&lt;/pre&gt;</content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;ELK是ElasticSearch、Logstash、Kibana三个开源软件的缩写。在实时数据检索和分析场合，通常是三者组合使用，故有此简称。&lt;/p&gt;
+&lt;p&gt;ElasticSearch简称ES，是个开源分布式搜索引擎，主要用来存储和检索数据。&lt;/p&gt;
+&lt;p&gt;Logstas
+    
+    </summary>
+    
+      <category term="运维测试" scheme="https://babysource.github.io/categories/ops/"/>
+    
+    
+  </entry>
+  
+  <entry>
+    <title>Welcome</title>
+    <link href="https://babysource.github.io/articles/2016/usual/02/14/welcome/"/>
+    <id>https://babysource.github.io/articles/2016/usual/02/14/welcome/</id>
+    <published>2016-02-14T10:00:00.000Z</published>
+    <updated>2016-02-14T10:00:00.000Z</updated>
+    
+    <content type="html">&lt;p&gt;我的博客终于搭建完成了，首先当然是个大大的Welcome，欢迎感兴趣的、志同道合的人常来逛逛、喷喷。&lt;/p&gt;
+&lt;p&gt;其实在很久很久以前，我就一直想着自己要表达些什么，分享些什么，可是一直想了很久很久也没付诸于实践，也许这就是严重的拖延症吧。我的Github Pages注册后就一直放在那都快发霉了，终于通过这几日的一番装修折腾，正式顺利上线了。&lt;/p&gt;
+&lt;p&gt;折腾的过程中发现Hexo真是个好东西，原先大半年一直三天捕鱼两天晒网的研究Jeklly、Octopress 2.0和Octopress 3.0博客的建设，特别是Octopress 3.0正式发布后，发现Octopress 2.0的主题居然无法兼容使用，整个做成了基于Jeklly的插件了，现在回头想想感觉真浪费了不少时光啊！好在发现了Hexo，一天时间就上手了，其Node.js的亲和力也好，使用简单方便，主题也很漂亮，定制性也很强，真心赞一个。&lt;/p&gt;
+&lt;p&gt;从今往后我会把自己多年的技术经验与积累逐步梳理，并把一些自认为优秀的工具、框架、培训开源分享给大家，也希望大家多多关注我的Github与博客，给出宝贵的意见与建议。&lt;/p&gt;
+&lt;p&gt;在这里还要特别感谢Zippera’s Blog的相关博客建设教程，从博主开源的Lightum主题中也得到了不少收获。&lt;/p&gt;
+&lt;p&gt;在这也推荐给在路上的童鞋：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;a href=&quot;http://zipperary.com/categories/hexo/&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;http://zipperary.com/categories/hexo/&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+</content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;我的博客终于搭建完成了，首先当然是个大大的Welcome，欢迎感兴趣的、志同道合的人常来逛逛、喷喷。&lt;/p&gt;
+&lt;p&gt;其实在很久很久以前，我就一直想着自己要表达些什么，分享些什么，可是一直想了很久很久也没付诸于实践，也许这就是严重的拖延症吧。我的Github Pages注册后
+    
+    </summary>
+    
+    
+  </entry>
+  
+</feed>

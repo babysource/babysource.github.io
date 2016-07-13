@@ -1,0 +1,484 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Ganglia部署实战 | 弦外之影</title>
+  <meta name="author" content="Wythe">
+  
+  <meta name="description" content="Ganglia是UC Berkeley发起的一个开源集群监视项目，设计用于测量数以千计的节点。Ganglia的核心包含gmond、gmetad以及一个Web前端。主要是用来监控系统性能，如：cpu、mem、硬盘利用率、I/O负载、网络流量情况等，通过曲线很容易见到每个节点的工作状态，对合理调整、分配">
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <meta property="og:title" content="Ganglia部署实战"/>
+  <meta property="og:site_name" content="弦外之影"/>
+
+  
+    <meta property="og:image" content="undefined"/>
+  
+
+  <link href="/favicon.png" rel="icon">
+  <link rel="alternate" href="https://babysource.github.io/atom.xml" title="弦外之影" type="application/atom+xml">
+  <link rel="stylesheet" href="/css/style.css" media="screen" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  
+<script>
+	(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+			m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+	})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+	ga('create', 'UA-73787468-1', 'auto');
+	ga('send', 'pageview');
+
+</script>
+
+
+</head>
+
+
+<body>
+  <header id="header" class="inner"><div class="alignleft">
+  <h1><a href="/">弦外之影</a></h1>
+  <h2><a href="/">学而不思则罔，思而不学则殆！</a></h2>
+</div>
+<nav id="main-nav" class="alignright">
+  <ul>
+    
+      <li><a href="/">首页</a></li>
+    
+      <li><a href="/archives">归档</a></li>
+    
+      <li><a href="/projects">项目</a></li>
+    
+      <li><a href="/about">关于</a></li>
+    
+  </ul>
+  <div class="clearfix"></div>
+</nav>
+<div class="clearfix"></div>
+</header>
+  <div id="content" class="inner">
+    <div id="main-col" class="alignleft"><div id="wrapper"><article class="post">
+  
+  <div class="post-content">
+    <header>
+      
+        <div class="icon"></div>
+        <time datetime="2016-07-12T10:00:00.000Z"><a href="/articles/2016/ops/07/12/ganglia_deploy/">2016-07-12</a></time>
+      
+      
+  
+    <h1 class="title">Ganglia部署实战</h1>
+  
+
+    </header>
+    <div class="entry">
+      
+        <p>Ganglia是UC Berkeley发起的一个开源集群监视项目，设计用于测量数以千计的节点。Ganglia的核心包含gmond、gmetad以及一个Web前端。主要是用来监控系统性能，如：cpu、mem、硬盘利用率、I/O负载、网络流量情况等，通过曲线很容易见到每个节点的工作状态，对合理调整、分配系统资源，提高系统整体性能起到重要作用。</p>
+<h1 id="工作原理"><a href="#工作原理" class="headerlink" title="工作原理"></a>工作原理</h1><p>Ganglia主要有两个角色：gmond（ganglia monitor daemons）和gmetad（ganglia metadata daemons）。</p>
+<p>gmond：需要在被监控的每台机器上部署，负责采集所在机器的系统状态，信息都是存储在内存里面的。</p>
+<p>gmetad：负责收集gmond监控信息写入rrdtool环形数据库，然后ganglia-web读取rrdtool并且绘图呈现给用户。</p>
+<h1 id="部署环境"><a href="#部署环境" class="headerlink" title="部署环境"></a>部署环境</h1><blockquote>
+<p>ganglia v3.7.2</p>
+<p>CentOS release 6.3 (Final)</p>
+<p>Linux version 2.6.32-279.el6.x86_64</p>
+</blockquote>
+<h1 id="1-安装Ganglia"><a href="#1-安装Ganglia" class="headerlink" title="1.安装Ganglia"></a>1.安装Ganglia</h1><h2 id="1-1-安装Ganglia服务端"><a href="#1-1-安装Ganglia服务端" class="headerlink" title="1.1 安装Ganglia服务端"></a>1.1 安装Ganglia服务端</h2><pre><code>yum install ganglia ganglia-devel ganglia-gmetad ganglia-gmond ganglia-gmond-python ganglia-web
+</code></pre><h2 id="1-2-安装Ganglia客户端"><a href="#1-2-安装Ganglia客户端" class="headerlink" title="1.2 安装Ganglia客户端"></a>1.2 安装Ganglia客户端</h2><pre><code>yum install ganglia ganglia-gmond
+</code></pre><h1 id="2-配置Ganglia"><a href="#2-配置Ganglia" class="headerlink" title="2.配置Ganglia"></a>2.配置Ganglia</h1><h2 id="2-1-服务端配置gmetad-etc-ganglia-gmetad-conf"><a href="#2-1-服务端配置gmetad-etc-ganglia-gmetad-conf" class="headerlink" title="2.1 服务端配置gmetad ( /etc/ganglia/gmetad.conf )"></a>2.1 服务端配置gmetad ( /etc/ganglia/gmetad.conf )</h2><pre><code>gridname &quot;网格名称&quot;
+
+data_source &quot;集群名称&quot; IP1：PORT1 IP2：PORT2
+
+# 可选配置
+# The port gmetad will answer requests for XML.
+xml_port 8651
+# 可选配置
+# The port gmetad will answer queries for XML.
+interactive_port 8652
+# 可选配置（响应请求线程）
+server_threads 4
+# 可选配置（数据保存路径）
+rrd_rootdir &quot;/var/lib/ganglia/rrds&quot;
+</code></pre><p>注：PORT默认端口8649</p>
+<h2 id="2-2-客户端配置gmond-etc-ganglia-gmond-conf"><a href="#2-2-客户端配置gmond-etc-ganglia-gmond-conf" class="headerlink" title="2.2 客户端配置gmond ( /etc/ganglia/gmond.conf )"></a>2.2 客户端配置gmond ( /etc/ganglia/gmond.conf )</h2><pre><code>globals {
+  # 是否后台方式运行
+  # When yes, gmond will daemonize. 
+  # When no, gmond will run in the foreground.
+  daemonize = yes
+  # 是否指定UID
+  # When yes, gmond will set its effective UID to the uid of the user specified by the user attribute. 
+  # When no, gmond will not change its effective user.
+  setuid = yes
+  # 运行gmond用户
+  user = ganglia
+  # 调试级别
+  # When set to zero (0), gmond will run normally.
+  # The higher the debug_level the more verbose the output.
+  # A debug_level greater than zero will result in gmond running in the foreground and outputting debugging information. 
+  debug_level = 0
+  # 发送包最大长度
+  max_udp_msg_len = 1472
+  # 是否广播采集数据
+  mute = no
+  # 是否接收广播数据
+  deaf = no
+  # 是否发送EXTRA_ELEMENT和EXTRA_DATA部分
+  allow_extra_data = yes
+  # （秒）
+  host_dmax = 86400
+  # （秒）
+  host_tmax = 20
+  # 清除过期数据最小时间间隔（秒）
+  cleanup_threshold = 300
+  # 是否启用gexec任务
+  # http://www.theether.org/gexec/
+  gexec = no
+  # 可选配置（重写主机名称）
+  # override_hostname = &quot;主机名称&quot;
+  # 发送采集数据最小时间间隔（秒）
+  # If you are not using multicast this value should be set to something other than 0.
+  send_metadata_interval = 0
+}
+
+cluster {
+  # 同data_source集群名称配置
+  name = &quot;集群名称&quot;
+  # 示例：Wythe 或 unspecified
+  owner = &quot;节点所有者&quot;
+  # 示例：N37.37 W122.23 或 unspecified
+  latlong = &quot;经纬度坐标&quot;
+  # 示例：https://babysource.github.io/ 或 unspecified
+  url = &quot;集群信息网址&quot;
+}
+
+udp_send_channel {
+  # 可选配置（是否绑定主机名称）
+  # bind_hostname = yes
+
+  # 多播地址（多播时配置，多播与单播模式互斥，仅限选一种模式）
+  mcast_join = 239.2.11.71
+  # 可选配置（多播时配置，绑定网络设备）
+  # mcast_if = eth0
+
+  # 单播地址（单播时配置，单播与多播模式互斥，仅限选一种模式）
+  # 单播模式下可配置多个udp_send_channel
+  # host = 127.0.0.1
+
+  # 监听端口
+  port = 8649
+  # Time to Live
+  ttl = 1
+}
+
+udp_recv_channel {
+  # 多播地址（多播时配置，多播与单播模式互斥，仅限选一种模式）
+  mcast_join = 239.2.11.71
+  # 可选配置（多播时配置，绑定网络设备）
+  # mcast_if = eth0
+
+  # 绑定地址
+  bind = 239.2.11.71
+  # 监听端口
+  port = 8649
+  # 网络协议（IPV4: inet4; IPV6: inet6;）
+  # family = inet4
+  # 是否重试绑定
+  retry_bind = true
+  # Size of the UDP buffer.
+  # buffer = 10485760
+}
+
+tcp_accept_channel {
+  # 网络协议（IPV4: inet4; IPV6: inet6;）
+  # family = inet4
+  # 绑定地址
+  # bind = 239.2.11.71
+  # 监听端口
+  port = 8649
+  # 绑定网络设备
+  # interface = eth0
+  # 是否启用gzip传输XML
+  gzip_output = no
+}
+</code></pre><h1 id="2-3-WEB站点配置-etc-httpd-conf-d-ganglia-conf"><a href="#2-3-WEB站点配置-etc-httpd-conf-d-ganglia-conf" class="headerlink" title="2.3 WEB站点配置 ( /etc/httpd/conf.d/ganglia.conf )"></a>2.3 WEB站点配置 ( /etc/httpd/conf.d/ganglia.conf )</h1><pre><code>Alias /ganglia /usr/share/ganglia
+&lt;Location /ganglia&gt;
+  Order Deny,Allow
+  Deny from all
+  Allow from all
+&lt;/Location&gt;
+</code></pre><h1 id="2-4-关闭SELINUX-etc-selinux-config"><a href="#2-4-关闭SELINUX-etc-selinux-config" class="headerlink" title="2.4 关闭SELINUX ( /etc/selinux/config )"></a>2.4 关闭SELINUX ( /etc/selinux/config )</h1><pre><code>SELINUX=disable
+</code></pre><p>注： 需重启机器。（还可执行指令”setenforce 0”临时关闭SELINUX）</p>
+<h1 id="3-启动服务"><a href="#3-启动服务" class="headerlink" title="3.启动服务"></a>3.启动服务</h1><pre><code>service httpd start
+service gmond start
+service gmetad start
+</code></pre><h1 id="4-访问站点"><a href="#4-访问站点" class="headerlink" title="4.访问站点"></a>4.访问站点</h1><pre><code>http://HOST:PORT/ganglia
+</code></pre>
+      
+    </div>
+    <footer>
+      
+        
+  
+  <div class="categories">
+    <a href="/categories/ops/">运维测试</a>
+  </div>
+
+        
+        
+  <div class="bdsharebuttonbox" data-tag="share_1">
+    
+        <a class="bds_mshare" data-cmd="mshare"></a>
+    
+    
+        <a class="bds_weixin" data-cmd="weixin"></a>
+    
+    
+        <a class="bds_sqq" data-cmd="sqq"></a>
+    
+    
+    
+        <a class="bds_qzone" data-cmd="qzone"></a>
+    
+    
+        <a class="bds_tqf" data-cmd="tqf"></a>
+    
+    
+        <a class="bds_tieba" data-cmd="tieba"></a>
+    
+    
+        <a class="bds_tsina" data-cmd="tsina"></a>
+    
+    
+        <a class="bds_tqq" data-cmd="tqq"></a>
+    
+    
+    
+    
+    
+    
+        <a class="bds_renren" data-cmd="renren"></a>
+    
+    
+        <a class="bds_douban" data-cmd="douban"></a>
+    
+    
+    
+        <a class="bds_kaixin001" data-cmd="kaixin001"></a>
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+        <a class="bds_twi" data-cmd="twi"></a>
+    
+    
+        <a class="bds_fbook" data-cmd="fbook"></a>
+    
+    
+        <a class="bds_linkedin" data-cmd="linkedin"></a>
+    
+    
+        <a class="bds_youdao" data-cmd="youdao"></a>
+    
+    
+    
+    
+    
+    
+        <a class="bds_mail" data-cmd="mail"></a>
+    
+    
+    <a class="bds_more" data-cmd="more"></a>
+    <a class="bds_count" data-cmd="count"></a>
+  </div>
+  <script>
+    window._bd_share_config = {
+      "common" : {
+        "bdMini" : "2",
+        "bdStyle" : "0",
+        "bdMiniList" : (function(){
+          var shares = [];
+          
+          
+          
+          
+              shares.push("fx");
+          
+          
+          
+          
+          
+          
+          
+              shares.push("ibaidu");
+          
+          
+              shares.push("thx");
+          
+          
+              shares.push("people");
+          
+          
+              shares.push("xinhua");
+          
+          
+          
+          
+              shares.push("huaban");
+          
+          
+          
+              shares.push("mogujie");
+          
+          
+              shares.push("meilishuo");
+          
+          
+              shares.push("bdxc");
+          
+          
+              shares.push("bdysc");
+          
+          
+              shares.push("h163");
+          
+          
+              shares.push("isohu");
+          
+          
+              shares.push("ty");
+          
+          
+              shares.push("yaolan");
+          
+          
+              shares.push("hx");
+          
+          
+              shares.push("iguba");
+          
+          
+              shares.push("wealink");
+          
+          
+              shares.push("duitang");
+          
+          
+              shares.push("diandian");
+          
+          
+          
+          
+          
+          
+              shares.push("qingbiji");
+          
+          
+              shares.push("sdo");
+          
+          
+              shares.push("evernotecn");
+          
+          
+              shares.push("copy");
+          
+          
+          
+              shares.push("print");
+          
+          return shares.length > 0 ? shares : false;
+        }())
+      },
+      "share" : {
+        "bdSize" : "24"
+      }
+    };
+    with(document)0[(getElementsByTagName('head')[0]||body).appendChild(createElement('script')).src='http://bdimg.share.baidu.com/static/api/js/share.js?cdnversion='+~(-new Date()/36e5)];
+  </script>
+
+      
+      <div class="clearfix"></div>
+    </footer>
+  </div>
+</article>
+
+
+<section id="comment">
+  <h1 class="title">留言</h1>
+  
+    <div id="disqus_thread">
+      <noscript>Please enable JavaScript to view the <a href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    </div>
+  
+</section>
+
+</div></div>
+    <aside id="sidebar" class="alignright">
+  <div class="search">
+  <form action="//google.com/search" method="get" accept-charset="utf-8">
+    <input type="search" name="q" results="0" placeholder="搜索">
+    <input type="hidden" name="q" value="site:babysource.github.io">
+  </form>
+</div>
+
+  
+<div class="widget tag">
+  <h3 class="title">分类</h3>
+  <ul class="entry">
+  
+    <li><a href="/categories/archit/">架构设计</a><small>0</small></li>
+  
+    <li><a href="/categories/ops/">运维测试</a><small>2</small></li>
+  
+  </ul>
+</div>
+
+
+  
+</aside>
+    <div class="clearfix"></div>
+  </div>
+  <footer id="footer" class="inner"><div class="alignleft">
+  Copyright &copy; 2016 - Wythe - Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+</div>
+<div class="clearfix"></div></footer>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+<script src="/js/jquery.imagesloaded.min.js"></script>
+<script src="/js/gallery.js"></script>
+
+
+<script type="text/javascript">
+(function(){
+  var doc = document, dsq = doc.createElement('script');
+  dsq.type = 'text/javascript';
+  dsq.async = true;
+  dsq.src = '//wythe-blog.disqus.com/embed.js';
+  (doc.getElementsByTagName('head')[0] || doc.getElementsByTagName('body')[0]).appendChild(dsq);
+}());
+</script>
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+(function($){
+  $('.fancybox').fancybox();
+})(jQuery);
+</script>
+
+  <a href="https://github.com/babysource" target="_blank"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/a6677b08c955af8400f44c6298f40e7d19cc5b2d/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f677261795f3664366436642e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" /></a>
+</body>
+</html>

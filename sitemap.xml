@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>https://babysource.github.io/projects/index.html</loc>
+    
+    <lastmod>2016-07-12T10:56:04.040Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/about/index.html</loc>
+    
+    <lastmod>2016-07-12T10:56:04.037Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/about/about.css</loc>
+    
+    <lastmod>2016-07-12T10:56:04.036Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/404.html</loc>
+    
+    <lastmod>2016-07-12T10:56:04.032Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/articles/2016/ops/07/12/ganglia_deploy/</loc>
+    
+    <lastmod>2016-07-12T10:00:00.000Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/articles/2016/ops/07/12/elk_deploy/</loc>
+    
+    <lastmod>2016-07-12T10:00:00.000Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://babysource.github.io/articles/2016/usual/02/14/welcome/</loc>
+    
+    <lastmod>2016-02-14T10:00:00.000Z</lastmod>
+    
+  </url>
+  
+</urlset>
